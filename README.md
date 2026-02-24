@@ -71,11 +71,7 @@ conv-dashboard/
 - **`data_cleaner.py`**: 수집된 여러 CSV 파일을 하나로 합치고, 가격 정보의 숫자화 및 노이즈 데이터를 제거합니다.
 - **`data_categorize.py`**: 상품명을 분석하여 '식사류', '간식류', '음료', '생활용품' 등으로 자동 분류합니다.
 
-### 4. **`templates/` & `static/` (Web Visualization)**
-- 웹 대시보드 구현을 위한 공간입니다. 
-- HTML 구조는 `templates`에서, 디자인(CSS)과 동적 기능(JS)은 `static` 폴더에서 관리합니다.
-
-### 5. **`data/` (Storage)**
+### 4. **`data/` (Storage)**
 - 수집 및 처리된 모든 CSV 데이터가 보관되는 장소입니다. 
 - 파일명 형식: `{브랜드}_{날짜}.csv` (예: `CU_260224.csv`)
 
