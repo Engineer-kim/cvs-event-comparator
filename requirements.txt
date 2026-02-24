@@ -3,4 +3,6 @@ pandas
 beautifulsoup4
 loguru
 plotly
-streamlit
+streamlit>=1.35.0
+nbformat
+ipykernel
