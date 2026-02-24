@@ -15,11 +15,6 @@ conv-dashboard/
 ┣━━ 📄 README.md               # 프로젝트 개요 및 사용 가이드
 ┣━━ 📄 app.py                  # [Main] 통합 실행 및 대시보드 엔진
 ┃
-┣━━ 📂 templates/              # [Frontend] HTML 템플릿 파일
-┣━━ 📂 static/                 # [Frontend] 정적 리소스 관리
-┃   ┣━━ 📂 css/                # 스타일시트 (.css)
-┃   ┗━━ 📂 js/                 # 자바스크립트 (.js)
-┃
 ┣━━ 📂 scraper/                # [수집] 브랜드별 크롤러 패키지
 ┃   ┣━━ 📄 __init__.py         # 패키지 초기화 파일
 ┃   ┣━━ 📄 cu_scraper.py       # CU 데이터 수집 로직
