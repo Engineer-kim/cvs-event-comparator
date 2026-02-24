@@ -1,8 +1,8 @@
-requests==2.32.3
-pandas==2.2.2
-beautifulsoup4==4.12.3
-loguru==0.7.2
-plotly==5.20.0
+requests
+pandas
+beautifulsoup4
+loguru
+plotly
 streamlit
-nbformat>=4.2.0
+nbformat
 ipykernel
