@@ -179,6 +179,86 @@ if not df.empty:
         fig2.update_layout(xaxis_tickangle=0, showlegend=False, height=400, hovermode="x unified", margin=dict(l=20, r=20, t=20, b=20))
         st.plotly_chart(fig2, use_container_width=True)
 
+        
+        st.subheader("📉 브랜드별 평균 할인율")
+        
+        # 1. 할인율 계산 (0으로 나누기 방지)
+        filtered_df = filtered_df.copy() 
+        filtered_df['discount_rate'] = 0.0 # 기본값 0 세팅
+        
+        # price가 0보다 큰 정상적인 데이터만 계산
+        valid_mask = filtered_df['price'] > 0
+        filtered_df.loc[valid_mask, 'discount_rate'] = (
+            (filtered_df.loc[valid_mask, 'price'] - filtered_df.loc[valid_mask, 'unit_price']) 
+            / filtered_df.loc[valid_mask, 'price'] * 100
+        )
+        
+        # "할인 행사 중인 상품(할인율 > 0)"의 평균
+        discount_df = filtered_df[filtered_df['discount_rate'] > 0]
+        avg_discount_dict = dict(discount_df.groupby('brand')['discount_rate'].mean())
+        
+        
+        # 2. 브랜드별 평균 할인율 집계
+        avg_discount = pd.DataFrame({
+            '브랜드': brand_order,
+            '평균할인율': [avg_discount_dict.get(b, 0) for b in brand_order]
+        })
+        
+        # 3. Plotly 막대그래프 생성 (Toss 스타일 적용)
+        fig3 = px.bar(
+            avg_discount, 
+            x='브랜드', 
+            y='평균할인율',
+            text=[f"{val:.1f}%" for val in avg_discount['평균할인율']], 
+            color='브랜드',
+            color_discrete_map=brand_colors,
+            category_orders={"브랜드": brand_order}
+        )
+        
+        # 테두리 삭제(Flat), 얄쌍한 두께, 깔끔한 폰트
+        fig3.update_traces(
+            textposition='outside', 
+            textfont=dict(size=15, family="Pretendard, -apple-system, BlinkMacSystemFont, system-ui, sans-serif", weight='bold'), 
+            marker_line_width=0, # 테두리 두께 0 (테두리 없는 플랫한 느낌)
+            opacity=1.0,         # 투명도 없이 색상을 쨍하고 선명하게
+            width=0.45           # 막대 두께를 얇게 빼서 여백의 미 강조
+        )
+        
+        # 미세한 차이를 시각적으로 극대화하기 위한 Y축 범위 동적 계산
+        min_val = avg_discount['평균할인율'].min()
+        max_val = avg_discount['평균할인율'].max()
+        
+        # 최소값에서 -2%, 최대값에서 +2% 정도 여유를 두어 돋보기 효과 주기
+        y_min = max(0, min_val - 2) # 최소값이 0 밑으로 뚫고 내려가지 않게 방어
+        y_max = max_val + 2 if max_val > 0 else 10 
+
+        # 전체 레이아웃 (은은한 배경과 폰트)
+        fig3.update_layout(
+            xaxis_tickangle=0, 
+            showlegend=False, 
+            height=380, 
+            yaxis_title=None, 
+            
+            font=dict(family="Pretendard, -apple-system, system-ui, sans-serif", size=13, color="#8B95A1"),
+            plot_bgcolor='rgba(0,0,0,0)', 
+            paper_bgcolor='rgba(0,0,0,0)', 
+            
+            xaxis=dict(
+                showgrid=False, 
+                zeroline=False,
+                tickfont=dict(size=14, color="#E5E8EB", weight='bold') 
+            ),
+            yaxis=dict(
+                showgrid=True,
+                gridcolor='rgba(255, 255, 255, 0.05)', 
+                zeroline=False,
+                showticklabels=False, 
+                range=[y_min, y_max] #0이 아닌 y_min부터 시작하도록 변경
+            ),
+            margin=dict(l=10, r=10, t=40, b=10) 
+        )
+        st.plotly_chart(fig3, use_container_width=True)
+
         st.subheader("📈 브랜드별 핵심 요약")
         # 원본 필터링 데이터에서 브랜드별 통계 계산
         brand_stats = filtered_df.groupby('brand').agg({
