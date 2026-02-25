@@ -17,7 +17,18 @@ def get_data():
         return pd.DataFrame()
     
     df = pd.read_csv(file_path)
-    df['event'] = df['event'].str.replace(' ', '', regex=False)
+    # 이벤트 표기 정규화
+    if 'event' in df.columns:
+        df['event'] = df['event'].astype(str).str.replace(r'\s+', '', regex=True)
+        df.loc[df['event'].str.contains(r'1\+1', regex=True, na=False), 'event'] = '1+1'
+        df.loc[df['event'].str.contains(r'2\+1', regex=True, na=False), 'event'] = '2+1'
+        df.loc[df['event'].str.contains(r'3\+1', regex=True, na=False), 'event'] = '3+1'
+        df.loc[df['event'].str.contains(r'(?i)sale|세일', regex=True, na=False), 'event'] = 'SALE'
+
+    # 브랜드명 정규화
+    if 'brand' in df.columns:
+        df['brand'] = df['brand'].astype(str).str.strip()
+
     df['price'] = pd.to_numeric(df['price'].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(0).astype(int)
     
     def calc_unit_price(row):
@@ -68,61 +79,120 @@ if not df.empty:
         (df['brand'].isin(selected_brands)) & 
         (df['event'].isin(selected_events)) &
         (df['category'].isin(selected_cats)) &
-        (df['name'].str.contains(search_query, case=False))
+        (df['name'].str.contains(search_query, case=False, na=False))
     ]
-
-    if sort_option == "가격 낮은 순":
-        filtered_df = filtered_df.sort_values(by='unit_price', ascending=True)
-    elif sort_option == "가격 높은 순":
-        filtered_df = filtered_df.sort_values(by='unit_price', ascending=False)
 
     st.subheader("📊 브랜드별 행사 통계")
     
     if not filtered_df.empty:
+        # 상세 통계 표 생성 (피벗) - 이벤트별 개수
+        event_pivot = filtered_df.groupby(['brand', 'event']).size().unstack(fill_value=0)
+
+        # 이벤트 컬럼 순서 정렬
+        desired_order = ['1+1', '2+1', '3+1', '4+1', '5+1']
+        existing_cols = [c for c in desired_order if c in event_pivot.columns]
+        other_cols = sorted([c for c in event_pivot.columns if c not in desired_order])
+        cols_order = existing_cols + other_cols
+        event_pivot = event_pivot[cols_order]
+
+        # 정렬: 첫 번째 컬럼(1+1) 기준으로 행의 순서 결정
+        if sort_option == "가격 높은 순":
+            if len(cols_order) > 0:
+                sort_indices = sorted(range(len(event_pivot)),
+                                     key=lambda i: event_pivot[cols_order[0]].iloc[i],
+                                     reverse=True)
+                event_pivot = event_pivot.iloc[sort_indices]
+        elif sort_option == "가격 낮은 순":
+            if len(cols_order) > 0:
+                sort_indices = sorted(range(len(event_pivot)),
+                                     key=lambda i: event_pivot[cols_order[0]].iloc[i],
+                                     reverse=False)
+                event_pivot = event_pivot.iloc[sort_indices]
+        else:
+            event_pivot = event_pivot.sort_index(ascending=True)
+
+        brand_order = event_pivot.index.tolist()
+
+        # 각 컬럼을 독립적으로 정렬하여 재구성
+        sorted_event_data = {}
+        for col in cols_order:
+            if sort_option == "가격 높은 순":
+                sorted_event_data[col] = sorted(event_pivot[col].values, reverse=True)
+            elif sort_option == "가격 낮은 순":
+                sorted_event_data[col] = sorted(event_pivot[col].values, reverse=False)
+            else:
+                sorted_event_data[col] = event_pivot[col].values
+
+        # 브랜드명을 인덱스로 유지하면서 정렬된 값으로 DataFrame 재생성
+        event_pivot_display = pd.DataFrame(sorted_event_data, index=brand_order)
+
+        # 각 컬럼을 독립적으로 정렬한 후, 그 값들로 막대그래프 데이터 생성
+        # 표와 동일한 정렬 방식 사용
+        brand_counts_raw = filtered_df['brand'].value_counts()
+
+        # 표의 첫 번째 컬럼(1+1)의 정렬된 값들
+        first_col_sorted_values = sorted_event_data[cols_order[0]]
+
+        # 막대그래프: 첫 번째 컬럼(1+1)의 정렬된 값 기준
+        brand_counts = pd.DataFrame({
+            '브랜드': brand_order,
+            '상품 개수': first_col_sorted_values
+        })
+        brand_counts['브랜드'] = pd.Categorical(brand_counts['브랜드'], categories=brand_order, ordered=True)
+        brand_counts = brand_counts.sort_values('브랜드')
+
         col1, col2 = st.columns(2)
         with col1:
             st.write("✨ 브랜드별 총 행사 상품 수")
-            brand_counts = filtered_df['brand'].value_counts().reset_index()
-            brand_counts.columns = ['브랜드', '상품 개수']
             fig1 = px.bar(
                 brand_counts,
                 x='브랜드',
                 y='상품 개수',
                 text='상품 개수',
                 color='브랜드',
-                color_discrete_map=brand_colors
+                color_discrete_map=brand_colors,
+                category_orders={"브랜드": brand_order}
             )
-            fig1.update_layout(xaxis_tickangle=0, showlegend=False, height=400)
+            fig1.update_layout(xaxis_tickangle=0, showlegend=False, height=400, margin=dict(l=20, r=20, t=20, b=20))
             st.plotly_chart(fig1, use_container_width=True)
 
         with col2:
-            st.write("📝 상세 통계 표 (행사 종류별)")
-            event_brand_counts = filtered_df.groupby(['brand', 'event']).size().unstack(fill_value=0)
+            st.write(f"📝 상세 통계 표 ({sort_option})")
+            event_brand_counts = event_pivot_display.copy()
+            event_brand_counts.index = event_brand_counts.index.astype(str)
+            event_brand_counts.index.name = '브랜드'
             st.dataframe(event_brand_counts, use_container_width=True)
 
         st.subheader("💰 브랜드별 평균 개당 가격 (unit_price)")
-        avg_price = filtered_df.groupby('brand')['unit_price'].mean().reset_index()
-        avg_price.columns = ['브랜드', '평균가격']
-        fig2 = px.line(avg_price, x='브랜드', y='평균가격', markers=True)
+        avg_price_dict = dict(filtered_df.groupby('brand')['unit_price'].mean())
+        avg_price = pd.DataFrame({
+            '브랜드': brand_order,
+            '평균가격': [avg_price_dict.get(b, 0) for b in brand_order]
+        })
+        # 브랜드를 범주형으로 설정 (brand_order 순서 유지)
+        avg_price['브랜드'] = pd.Categorical(avg_price['브랜드'], categories=brand_order, ordered=True)
+        # sort_values를 사용하지 않고 category 순서대로 정렬됨 (Plotly가 인식)
+        avg_price = avg_price.sort_values('브랜드', key=lambda x: x.cat.codes)
+
+        fig2 = px.line(avg_price, x='브랜드', y='평균가격', markers=True, category_orders={"브랜드": brand_order})
         fig2.update_traces(line=dict(color="#FF6B6B", width=3), marker=dict(size=10))
-        fig2.update_layout(xaxis_tickangle=0, showlegend=False, height=400, hovermode="x unified")
+        fig2.update_layout(xaxis_tickangle=0, showlegend=False, height=400, hovermode="x unified", margin=dict(l=20, r=20, t=20, b=20))
         st.plotly_chart(fig2, use_container_width=True)
 
         st.subheader("📈 브랜드별 핵심 요약")
-        # 실제 필터링된 브랜드들만 출력
-        display_brands = [b for b in selected_brands if b in filtered_df['brand'].unique()]
-        if display_brands:
-            m_cols = st.columns(len(display_brands))
-            brand_stats = filtered_df.groupby('brand').agg({
-                'name': 'count',
-                'unit_price': 'mean'
-            }).rename(columns={'name': '상품 수', 'unit_price': '평균 단가'})
-            
-            for i, brand in enumerate(display_brands):
-                if brand in brand_stats.index:
-                    row = brand_stats.loc[brand]
-                    with m_cols[i]:
-                        st.metric(brand, f"{int(row['상품 수'])}개", f"평균 {int(row['평균 단가']):,}원")
+        # 원본 필터링 데이터에서 브랜드별 통계 계산
+        brand_stats = filtered_df.groupby('brand').agg({
+            'name': 'count',
+            'unit_price': 'mean'
+        }).rename(columns={'name': '상품 수', 'unit_price': '평균 단가'})
+        # 평균 단가 내림차순으로 정렬
+        brand_stats = brand_stats.sort_values('평균 단가', ascending=False)
+
+        if len(brand_stats) > 0:
+            m_cols = st.columns(len(brand_stats))
+            for i, (brand, row) in enumerate(brand_stats.iterrows()):
+                with m_cols[i]:
+                    st.metric(brand, f"{int(row['상품 수'])}개", f"평균 {int(row['평균 단가']):,}원")
     else:
         st.warning("필터링된 결과가 없습니다.")
 else:
