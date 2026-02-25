@@ -24,7 +24,98 @@ st.markdown(f"""
     </div>
 """, unsafe_allow_html=True)
 
-# 2. 퀵 메뉴 카드
+# 2. 추천 상품 섹션 
+try:
+    df = pd.read_csv('data/categorized_data.csv')
+    display_df = pd.DataFrame()
+
+    # 타이틀 
+    if 'recent_keywords' in st.session_state and st.session_state['recent_keywords']:
+        st.markdown("### 🎁 취향 저격 맞춤 추천")
+        
+        # 기억된 모든 키워드를 순회하며 상품 모으기
+        rec_list = []
+        for kwd in st.session_state['recent_keywords']:
+            matched = df[df['name'].astype(str).str.contains(kwd, case=False, na=False)]
+            rec_list.append(matched)
+        
+        # 모은 상품들을 하나로 합치고 중복 제거
+        if rec_list:
+            display_df = pd.concat(rec_list).drop_duplicates(subset=['name', 'brand', 'event'])
+            
+    else:
+        st.markdown("### 🎲 오늘의 핫딜 추천")
+
+    # 10개가 안 되면 남은 빈자리만큼 랜덤으로 채우기
+    if len(display_df) < 10 and not df.empty:
+        shortfall = 10 - len(display_df)
+        
+        # 이미 추천 목록에 들어간 상품은 제외하고 남은 풀(pool) 생성
+        if not display_df.empty:
+            remaining_df = df.drop(display_df.index, errors='ignore')
+        else:
+            remaining_df = df
+            
+        # 빈자리만큼 랜덤으로 뽑아서 밑에다 이어 붙이기
+        if not remaining_df.empty:
+            fill_df = remaining_df.sample(n=min(shortfall, len(remaining_df)))
+            display_df = pd.concat([display_df, fill_df])
+
+    # 혹시나 10개가 넘어가면 10개까지만 자르기
+    display_df = display_df.head(10)
+
+    # 가로 스크롤 카드 그리기 
+    if not display_df.empty:
+        scroll_html = """<style>
+.horizontal-scroll-wrapper {
+    display: flex;
+    overflow-x: auto;
+    gap: 15px;
+    padding: 10px 5px 20px 5px;
+    scroll-behavior: smooth;
+}
+.horizontal-scroll-wrapper::-webkit-scrollbar {
+    height: 8px;
+}
+.horizontal-scroll-wrapper::-webkit-scrollbar-thumb {
+    background-color: #d1d5db;
+    border-radius: 10px;
+}
+.scroll-item {
+    flex: 0 0 220px;
+    border: 1px solid #e0e0e0;
+    border-radius: 12px;
+    padding: 15px;
+    background: white;
+    box-shadow: 2px 2px 8px rgba(0,0,0,0.05);
+    text-align: center;
+}
+</style>
+<div class="horizontal-scroll-wrapper">"""
+
+        for idx, row in display_df.iterrows():
+            img_url = row['img_url'] if pd.notna(row['img_url']) else "https://via.placeholder.com/150?text=No+Image"
+            # 개당 가격 계산 
+            price = int(str(row['price']).replace(',', '')) if pd.notna(row['price']) else 0
+            unit_price = price // 2 if row['event'] == '1+1' else (price * 2 // 3 if row['event'] == '2+1' else price)
+            
+            scroll_html += f"""
+    <div class="scroll-item">
+        <img src="{img_url}" style="width:100%; height:120px; object-fit:contain; border-radius:8px; margin-bottom:10px;">
+        <div style="font-size:12px; color:#888; text-align:left;">{row['brand']} | {row['event']}</div>
+        <div style="font-size:15px; font-weight:bold; margin: 5px 0; text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">{row['name']}</div>
+        <div style="font-size:18px; color:#ff4b4b; font-weight:900; text-align:left;">{price:,}원</div>
+        <div style="font-size:12px; color:#555; text-align:left; margin-top:5px;">👉 개당 {unit_price:,}원</div>
+    </div>"""
+
+        scroll_html += "</div>"
+        
+        st.markdown(scroll_html, unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+except Exception as e:
+    pass
+
+# 3. 퀵 메뉴 카드
 st.markdown("### 🚀 빠른 메뉴")
 c1, c2, c3 = st.columns(3)
 
@@ -64,7 +155,7 @@ with c3:
         </a>
     """, unsafe_allow_html=True)
 
-# 3. 하단 브랜드 로고 섹션
+# 4. 하단 브랜드 로고 섹션
 st.markdown("---")
 st.markdown("### 🏢 함께하는 브랜드")
 l1, l2, l3, l4 = st.columns(4)

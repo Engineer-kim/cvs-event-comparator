@@ -42,6 +42,15 @@ if not df.empty:
         r1_c1, r1_c2 = st.columns([3, 1])
         with r1_c1:
             search_query = st.text_input("📝 검색", "", placeholder="상품명 입력")
+
+            if search_query:
+                if 'recent_keywords' not in st.session_state:
+                    st.session_state['recent_keywords'] = []
+                if search_query in st.session_state['recent_keywords']:
+                    st.session_state['recent_keywords'].remove(search_query)
+                st.session_state['recent_keywords'].insert(0, search_query)
+                st.session_state['recent_keywords'] = st.session_state['recent_keywords'][:5]
+
         with r1_c2:
             sort_option = st.selectbox("💰 정렬", ["기본", "가격 낮은 순", "가격 높은 순"])
 
@@ -71,6 +80,14 @@ if not df.empty:
         filtered_df = filtered_df.sort_values(by='unit_price', ascending=True)
     elif sort_option == "가격 높은 순":
         filtered_df = filtered_df.sort_values(by='unit_price', ascending=False)
+    else: 
+        # "기본" 정렬일 때: 현재 검색창이 비어있고, 기억된 키워드가 있다면
+        if not search_query and 'recent_keywords' in st.session_state and st.session_state['recent_keywords']:
+            latest_kwd = st.session_state['recent_keywords'][0]
+            # 최근 검색어가 포함된 상품들에 가산점을 줘서 최상단으로 정렬
+            filtered_df['is_recommended'] = filtered_df['name'].str.contains(latest_kwd, case=False, na=False).astype(int)
+            filtered_df = filtered_df.sort_values(by='is_recommended', ascending=False)
+            filtered_df = filtered_df.drop(columns=['is_recommended'])
 
     # 상품 리스트 출력
     items_per_page = 30
