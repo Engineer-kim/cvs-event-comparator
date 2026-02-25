@@ -27,9 +27,6 @@ st.markdown(f"""
 # 2. 추천 상품 섹션 (가로 스크롤)
 try:
     df_main = pd.read_csv('data/categorized_data.csv')
-# 2. 추천 상품 섹션 
-try:
-    df = pd.read_csv('data/categorized_data.csv')
     display_df = pd.DataFrame()
 
     # 타이틀 
@@ -47,41 +44,12 @@ try:
     if len(display_df) < 10 and not df_main.empty:
         shortfall = 10 - len(display_df)
         remaining_df = df_main.drop(display_df.index, errors='ignore') if not display_df.empty else df_main
-        
-        # 기억된 모든 키워드를 순회하며 상품 모으기
-        rec_list = []
-        for kwd in st.session_state['recent_keywords']:
-            matched = df[df['name'].astype(str).str.contains(kwd, case=False, na=False)]
-            rec_list.append(matched)
-        
-        # 모은 상품들을 하나로 합치고 중복 제거
-        if rec_list:
-            display_df = pd.concat(rec_list).drop_duplicates(subset=['name', 'brand', 'event'])
-            
-    else:
-        st.markdown("### 🎲 오늘의 핫딜 추천")
-
-    # 10개가 안 되면 남은 빈자리만큼 랜덤으로 채우기
-    if len(display_df) < 10 and not df.empty:
-        shortfall = 10 - len(display_df)
-        
-        # 이미 추천 목록에 들어간 상품은 제외하고 남은 풀(pool) 생성
-        if not display_df.empty:
-            remaining_df = df.drop(display_df.index, errors='ignore')
-        else:
-            remaining_df = df
-            
-        # 빈자리만큼 랜덤으로 뽑아서 밑에다 이어 붙이기
         if not remaining_df.empty:
             fill_df = remaining_df.sample(n=min(shortfall, len(remaining_df)))
             display_df = pd.concat([display_df, fill_df])
 
     display_df = display_df.head(10)
 
-    # 혹시나 10개가 넘어가면 10개까지만 자르기
-    display_df = display_df.head(10)
-
-    # 가로 스크롤 카드 그리기 
     if not display_df.empty:
         scroll_html = """<style>
 .horizontal-scroll-wrapper {
@@ -112,7 +80,6 @@ try:
 
         for idx, row in display_df.iterrows():
             img_url = row['img_url'] if pd.notna(row['img_url']) else "https://via.placeholder.com/150?text=No+Image"
-            # 개당 가격 계산 
             price = int(str(row['price']).replace(',', '')) if pd.notna(row['price']) else 0
             unit_price = price // 2 if row['event'] == '1+1' else (price * 2 // 3 if row['event'] == '2+1' else price)
             
@@ -190,14 +157,6 @@ if df_time is not None:
         st.info(f"현재 {target_cat} 카테고리에 해당하는 행사 상품이 없습니다.")
 
 st.markdown("<br><br>", unsafe_allow_html=True)
-
-
-        scroll_html += "</div>"
-        
-        st.markdown(scroll_html, unsafe_allow_html=True)
-        st.markdown("<br>", unsafe_allow_html=True)
-except Exception as e:
-    pass
 
 # 3. 퀵 메뉴 카드
 st.markdown("### 🚀 빠른 메뉴")
@@ -294,74 +253,6 @@ with r3_c1:
     """, unsafe_allow_html=True)
 
 # 하단 브랜드 로고 섹션
-# ------ 여기부터 시간대별로 상품 추천해주는 기능 ------
-st.markdown("<br><br>", unsafe_allow_html=True)
-
-@st.cache_data(ttl=3600)
-def load_home_data():
-    file_path = os.path.join('data', 'categorized_data.csv')
-    if os.path.exists(file_path):
-        return pd.read_csv(file_path)
-    return None
-
-df = load_home_data()
-
-if df is not None:
-    # 1. 시간대별 카테고리 결정
-    now_hour = datetime.now().hour
-    if 6 <= now_hour < 11:
-        target_cat, title, icon = ["식사류"], "🌅 바쁜 아침, 든든한 한 끼!", "🥛"
-    elif 11 <= now_hour < 14:
-        target_cat, title, icon = ["식사류"], "🍱 오늘 점심 뭐 먹지?", "🥢"
-    elif 14 <= now_hour < 18:
-        target_cat, title, icon = ["간식류", "음료"], "☕ 나른한 오후, 당 충전 시간", "🍪"
-    elif 18 <= now_hour < 21:
-        target_cat, title, icon = ["식사류"], "🍺 하루를 마무리하는 저녁", "🍗"
-    else:
-        target_cat, title, icon = ["간식류", "식사류"], "🌙 출출한 밤, 야식의 유혹", "🍜"
-
-    display_cats = " ".join([f"#{c}" for c in target_cat])
-
-    # 2. 헤더 영역 (한 줄로 배치)
-    st.markdown(f"### {icon} {title}")
-
-    col_tag, col_btn = st.columns([4, 1])
-    with col_tag:
-        st.markdown(f"현재 시간대에 딱 맞는 **{display_cats}** 상품들입니다.")
-    with col_btn:
-        # 버튼을 누르면 이 페이지가 다시 실행되면서 sample()이 다시 돌아가므로 상품이 바뀝니다!
-        st.button("🔄 다른 상품 보기", use_container_width=True)
-
-    # 3. 데이터에서 해당 카테고리 상품 5개 랜덤 추출
-    recommend_df = df[df['category'].isin(target_cat)].copy()
-    if not recommend_df.empty:
-        exclude_keywords = ['쏘피', '좋은', '섬유유연제', '티셔츠', '순수한면', '면도날', '라엘', '순면', '비비안']
-        filter_condition = recommend_df['name'].str.contains('|'.join(exclude_keywords), na=False)
-        recommend_df = recommend_df[~filter_condition]
-
-        display_items = recommend_df.sample(n=min(len(recommend_df), 5))
-        cols = st.columns(5)
-        for i, (_, row) in enumerate(display_items.iterrows()):
-            with cols[i]:
-                st.markdown(f"""
-                    <div style="background-color: #161b22; border: 1px solid #30363d; border-radius: 10px; padding: 15px; text-align: center; height: 100%;">
-                        <div style="height: 100px; display: flex; align-items: center; justify-content: center; margin-bottom: 10px;">
-                            <img src="{row['img_url']}" style="max-width: 100%; max-height: 100px; object-fit: contain;">
-                        </div>
-                        <div style="font-size: 0.85rem; font-weight: bold; color: white; margin-bottom: 5px; height: 40px; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.2;">
-                            {row['name']}
-                        </div>
-                        <div style="color: #58a6ff; font-weight: bold; font-size: 1.1rem;">{int(row['price']):,}원</div>
-                        <div style="font-size: 0.8rem; color: #ff6b6b; font-weight: bold;">{row['event']}</div>
-                        <div style="font-size: 0.75rem; color: #8b949e; margin-top: 5px;">📍 {row['brand']}</div>
-                    </div>
-                """, unsafe_allow_html=True)
-    else:
-        st.info(f"현재 {target_cat} 카테고리에 해당하는 행사 상품이 없습니다.")
-
-# ------ 여기까지 ------
-
-# 3. 하단 브랜드 로고 섹션
 st.markdown("---")
 st.markdown("### 🏢 함께하는 브랜드")
 l1, l2, l3, l4 = st.columns(4)
