@@ -3,79 +3,168 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.jobstores.memory import MemoryJobStore
 from loguru import logger
 from datetime import datetime
+import pytz
 import time
 
-# 다음달 데이터 상품 가져오는 배치, 실패시  최대 3번까지 재시도
-def run_monthly_batch_task(run_time=None, max_retry=3):
-    run_time = run_time or datetime.now()
-    logger.info(f"🚀 [다음달 데이터 상품 가져오는 배치 시작] {run_time.strftime('%Y-%m-%d %H:%M:%S')} - 실행")
+def get_kst_now():
+    kst = pytz.timezone('Asia/Seoul')
+    return datetime.now(kst).replace(tzinfo=None)
 
-    next_month = (run_time.month % 12) + 1
-    year = run_time.year + (1 if next_month == 1 else 0)
+# 배치 작업: 지정된 연/월의 데이터를 가져옴 (재시도 최대 3회)
+def run_monthly_batch_task(year: int, month: int, batch_name: str = None, max_retry: int = 3, dry_run: bool = False):
+    """
+    지정된 연/월의 배치를 실행합니다.
+
+    Args:
+        year: 실행 대상 연도 (e.g., 2026)
+        month: 실행 대상 월 (1-12)
+        batch_name: 배치 식별자 (로그용)
+        max_retry: 최대 재시도 횟수
+        dry_run: True이면 크롤링 건너뜀
+    """
+    batch_name = batch_name or f"{year}년 {month}월"
+    run_time = datetime(year, month, 1, 0, 30, 0)
+    logger.info(f"🚀 [{batch_name}] 배치 시작 {run_time.strftime('%Y-%m-%d %H:%M:%S')}")
 
     attempt = 0
     success = False
     while attempt <= max_retry and not success:
         try:
-            from batch.script.cron_crawl import get_next_month_data_batch
-            get_next_month_data_batch(year=year, month=next_month, dry_run=False, run_time=run_time)
-            logger.success(f"✅ [다음달 상품 데이터 가져오는 배치 완료] {datetime.now().strftime('%H:%M:%S')} - 성공")
+            from batch.script.crawl_batch_script import get_next_month_data_batch
+            get_next_month_data_batch(year=year, month=month, dry_run=dry_run, run_time=run_time)
+            logger.success(f"✅ [{batch_name}] 배치 완료 - {get_kst_now().strftime('%H:%M:%S')}")
             success = True
         except Exception as e:
             attempt += 1
-            logger.error(f"❌ [다음달 상품 데이터 가져오는 배치 오류] 실행 중 예외 발생: {e}")
+            logger.error(f"❌ [{batch_name}] 배치 오류: {e}")
             if attempt <= max_retry:
-                logger.info(f"🔁 재시도 {attempt}/{max_retry} 진행 중...")
+                logger.info(f"🔁 재시도 {attempt}/{max_retry}회 진행 중...")
                 time.sleep(5)
             else:
-                logger.error(f"❌ [다음달 상품 데이터 가져오는 배치] 모든 재시도 실패")
+                logger.error(f"❌ [{batch_name}] 모든 재시도 실패")
+
 
 class SchedulerManager:
+    """여러 개의 배치 작업을 관리하는 스케줄러"""
+
     def __init__(self):
         self.scheduler = BackgroundScheduler(
             jobstores={'default': MemoryJobStore()},
             timezone='Asia/Seoul'
         )
+        self.job_configs = {}  # job_id별 설정 저장
 
-    def add_job(self, day, hour, minute, batch_id):
-        job_config = {
+    def add_job(self, day: int, hour: int, minute: int, year: int, month: int,
+                batch_name: str = None, job_id: str = None, dry_run: bool = False):
+        """
+        새로운 배치 작업을 등록 부(커스텀 해서 사용가능)
+
+        Args:
+            day: 실행 날짜 (1-31, * 사용 가능)
+            hour: 실행 시간 (0-23)
+            minute: 실행 분 (0-59)
+            year: 크롤링 대상 연도
+            month: 크롤링 대상 월 (1-12)
+            batch_name: 배치 이름 (기본값: "연도월")
+            job_id: job 식별자 (기본값: "batch_{year}_{month}_{day}_{hour}_{minute}")
+            dry_run: True이면 크롤링 건너뜀
+        """
+        batch_name = batch_name or f"{year}년 {month}월"
+        job_id = job_id or f"batch_{year}_{month}_{day}_{hour}_{minute}"
+
+        # 기존 job이 있으면 제거
+        if self.scheduler.get_job(job_id):
+            self.scheduler.remove_job(job_id)
+            logger.info(f"⚠️  기존 job 제거: {job_id}")
+
+        # job 설정 저장
+        self.job_configs[job_id] = {
             'day': day,
             'hour': hour,
             'minute': minute,
-            'id': batch_id
+            'year': year,
+            'month': month,
+            'batch_name': batch_name,
+            'dry_run': dry_run
         }
+
+        #job 추가
         self.scheduler.add_job(
             run_monthly_batch_task,
             'cron',
-            day=job_config['day'],
-            hour=job_config['hour'],
-            minute=job_config['minute'],
-            id=job_config['id'],
+            day=day,
+            hour=hour,
+            minute=minute,
+            id=job_id,
             replace_existing=True,
-            kwargs=job_config
+            kwargs={
+                'year': year,
+                'month': month,
+                'batch_name': batch_name,
+                'dry_run': dry_run
+            }
         )
-        logger.info(f"📅 월간 배치 등록 완료: {job_config['id']} (매월 {job_config['day']}일 {job_config['hour']}:{job_config['minute']})")
+        logger.info(f"✅ 배치 등록 완료: {job_id}")
+        logger.info(f"   매월 {day}일 {hour:02d}:{minute:02d} - [{batch_name}] (dry_run={dry_run})")
+
+    def remove_job(self, job_id: str):
+        """등록된 배치 작업을 제거합니다."""
+        if self.scheduler.get_job(job_id):
+            self.scheduler.remove_job(job_id)
+            del self.job_configs[job_id]
+            logger.info(f"🗑️  job 제거: {job_id}")
+        else:
+            logger.warning(f"⚠️  job을 찾을 수 없습니다: {job_id}")
 
     def start(self):
+        """스케줄러를 시작합니다."""
         if not self.scheduler.running:
             self.scheduler.start()
-            logger.info("🟢 Scheduler Manager: 백그라운드 스케줄러 활성화.")
+            logger.info("🟢 스케줄러 시작됨")
+        else:
+            logger.info("⚠️  스케줄러가 이미 실행 중입니다")
 
-    def get_info(self):
+    def stop(self):
+        """스케줄러를 중지"""
+        if self.scheduler.running:
+            self.scheduler.shutdown()
+            logger.info("🛑 스케줄러 중지됨")
+
+    def get_jobs(self):
+        """Batch Job 리턴."""
         jobs = self.scheduler.get_jobs()
         job_details = []
         for job in jobs:
             job_details.append({
                 "id": job.id,
-                "next_run": job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') if job.next_run_time else "N/A"
+                "trigger": str(job.trigger),
+                "next_run": job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') if job.next_run_time else "N/A",
+                "config": self.job_configs.get(job.id, {})
             })
         return {
             "is_running": self.scheduler.running,
+            "total_jobs": len(job_details),
             "jobs": job_details
         }
 
+    def get_job_info(self, job_id: str):
+        """특정 job의 상세 정보 리턴."""
+        job = self.scheduler.get_job(job_id)
+        if job:
+            return {
+                "id": job.id,
+                "trigger": str(job.trigger),
+                "next_run": job.next_run_time.strftime('%Y-%m-%d %H:%M:%S') if job.next_run_time else "N/A",
+                "config": self.job_configs.get(job_id, {})
+            }
+        else:
+            return None
+
+
 @st.cache_resource
 def get_scheduler_manager():
+    """Streamlit 캐시를 사용해 전역 스케줄러 인스턴스를 반환"""
     manager = SchedulerManager()
     manager.start()
     return manager
+

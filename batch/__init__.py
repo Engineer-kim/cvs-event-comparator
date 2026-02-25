@@ -1,3 +1,3 @@
 # batch package
-from batch.script.cron_crawl import get_next_month_data_batch
+from batch.script.crawl_batch_script import get_next_month_data_batch
 

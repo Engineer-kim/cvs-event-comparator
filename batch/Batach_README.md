@@ -17,8 +17,8 @@
 
 ## 📂 디렉토리 구조
 - `batch/`: 배치 스크립트 메인 로직 및 스케쥴러 관리
-- `scraper/`: 각 브랜드별 크롤러 모듈
-- `utils/`: 데이터 클리닝 및 카테고리 분류
+  - `script/`: 배치 스크립트 위치(ex) ABC배치, 26_2배치 등등)
+  - `batch_scheduler_manager.py`: 배치 스케쥴러 설정 및 실행
 - `crawl_batch_log/`: 배치 실행 로그 저장소
 - `test`/: 배치 스크립트 테스트 케이스 및 테스트코드
 
@@ -30,7 +30,6 @@
 -  dry_run ==> True : 실제 수집은 건너뛰고 로그 생성 및 전체 프로세스 흐름만 시뮬레이션
 -  dry_run ==> False : 실제 수집및  로그 생성 및 전체 프로세스 흐름 시뮬레이션
 - **crawl_batch_log, test/data 두개의 디렉토리는 삭제, 변경하면 안됨**
--  batch_scheduler_manager로 배치 스케쥴러 관리 하므로 해당 파일 내 작성 요망 
 ```bash
 cd test
 
