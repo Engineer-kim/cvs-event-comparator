@@ -60,34 +60,40 @@ def load_data():
 df = load_data()
 
 st.title("🍱 내 예산 맞춤 꿀조합 생성기")
-st.markdown("##### 주어진 예산과 카테고리 내에서 **가장 많이 절약할 수 있는 최적의 상품 조합**을 찾아드려요!")
+st.markdown("""
+    ##### 💰 당신의 예산과 취향을 완벽하게 저격할 편의점 꿀조합을 찾아드려요!
+    ##### ✨ 텅장도 든든하게, 입맛도 만족스럽게! 최적의 할인 혜택과 알찬 구성으로 후회 없는 한 끼를 즐겨보세요!
+""")
 st.write("")
 
 if df.empty:
+    st.error("데이터 로딩에 실패했습니다. 관리자에게 문의해주세요.")
     st.stop()
 
 # ----------------------------------
 # 1. 사용자 입력 UI
 # ----------------------------------
-col1, col2 = st.columns(2)
-with col1:
-    budget = st.slider("💰 예산을 알려주세요", min_value=3000, max_value=30000, value=10000, step=1000)
-with col2:
-    selected_brands = st.multiselect(
-        "🏪 특정 편의점을 선호하시나요? (미선택 시 전체)", 
-        options=list(df['brand'].unique()),
-        default=[]
+with st.container(border=True):
+    st.subheader("🛒 나만의 꿀조합 레시피")
+    col1, col2 = st.columns(2)
+    with col1:
+        budget = st.slider("💰 예산을 알려주세요", min_value=3000, max_value=30000, value=10000, step=1000)
+    with col2:
+        selected_brands = st.multiselect(
+            "🏪 특정 편의점을 선호하시나요? (미선택 시 전체)", 
+            options=list(df['brand'].unique()),
+            default=[]
+        )
+
+    allowed_categories = ['식사류', '간식류', '음료', '생수']
+    filtered_unique_categories = [cat for cat in df['category'].unique() if cat in allowed_categories]
+
+    st.markdown("##### 어떤 종류의 상품을 담고 싶나요? (2개 이상 선택)")
+    selected_categories = st.multiselect(
+        "카테고리 선택", 
+        options=filtered_unique_categories,
+        label_visibility="collapsed"
     )
-
-allowed_categories = ['식사류', '간식류', '음료', '생수']
-filtered_unique_categories = [cat for cat in df['category'].unique() if cat in allowed_categories]
-
-st.markdown("🛒 어떤 종류의 상품을 담고 싶나요? (2개 이상 선택)")
-selected_categories = st.multiselect(
-    "카테고리 선택", 
-    options=filtered_unique_categories, # 필터링된 카테고리만 제공
-    label_visibility="collapsed"
-)
 
 st.markdown("---")
 
@@ -96,9 +102,9 @@ st.markdown("---")
 # ----------------------------------
 if st.button("✨ 최적의 꿀조합 찾기", use_container_width=True):
     if len(selected_categories) < 2:
-        st.warning("최소 2개 이상의 카테고리를 선택해야 조합을 만들 수 있습니다!")
+        st.warning("⚠️ 최소 2개 이상의 카테고리를 선택해야 조합을 만들 수 있습니다!")
     else:
-        with st.spinner("최적의 조합을 계산하는 중입니다... 잠시만 기다려주세요."):
+        with st.spinner("⏳ 최고의 꿀조합을 신중하게 선별하는 중입니다... 잠시만 기다려주세요."):
             # 1. 브랜드 필터링
             if selected_brands:
                 filtered_df = df[df['brand'].isin(selected_brands)]
@@ -110,34 +116,30 @@ if st.button("✨ 최적의 꿀조합 찾기", use_container_width=True):
             meal_keywords = ['도시락', '김밥', '샌드위치', '햄버거', '핫도그', '주먹밥', '샐러드', '면', '밥', '삼각김밥', '국', '찌개', '탕', '즉석밥', '덮밥', '볶음밥', '죽', '컵밥', '밥버거']
             soup_keywords = ['국', '찌개', '탕', '전골', '부대찌개', '순두부', '육개장', '곰탕', '설렁탕']
             
-            # [수정 1] 제외 키워드 리스트 추가
             meal_exclude_keywords = ['도시락김', '김밥김', '삼각김밥용', '볶음밥용', '찌개양념', '국물용', '소스', '양념', '세트', '재료', '용기', '즉석', '조리']
 
             rice_staple_keywords = [
-                '즉석밥', '백미밥', '현미밥', '잡곡밥', '햇반', '오뚜기밥', '밥', # 기본적인 밥
-                '볶음밥', '덮밥', '컵밥', '주먹밥', '김밥', '삼각김밥', # 밥 베이스 식사
-                '김치볶음밥', '새우볶음밥', '소불고기덮밥' # 특정 메뉴 이름
+                '즉석밥', '백미밥', '현미밥', '잡곡밥', '햇반', '오뚜기밥', '밥', 
+                '볶음밥', '덮밥', '컵밥', '주먹밥', '김밥', '삼각김밥', 
+                '김치볶음밥', '새우볶음밥', '소불고기덮밥' 
             ]
             not_rice_keywords = [
-                '장조림', '양갱', '스낵', '과자', '초콜릿', '젤리', '사탕', '비스킷', '빵', '케이크', # 간식류
-                '안주', '반찬', '요리', '소스', '양념', '볶음', '김치', '단무지', # 반찬/곁들임
-                '밥도둑', '밥이랑' # 이름에 밥이 들어가지만 실제 밥이 아닌 경우
+                '장조림', '양갱', '스낵', '과자', '초콜릿', '젤리', '사탕', '비스킷', '빵', '케이크', 
+                '안주', '반찬', '요리', '소스', '양념', '볶음', '김치', '단무지', 
+                '밥도둑', '밥이랑' 
             ]
             side_dish_keywords = [
-                '장조림', '볶음', '김치', '고기', '햄', '소시지', '소세지', '참치', '김', '만두', '돈까스', '치킨', '너겟', # 메인 반찬/요리
-                '젓갈', '절임', '무침', '조림', '구이', '튀김', # 요리 방식/종류
-                '닭가슴살', '육포', '스테이크' # 단백질 보충용
+                '장조림', '볶음', '김치', '고기', '햄', '소시지', '소세지', '참치', '김', '만두', '돈까스', '치킨', '너겟', 
+                '젓갈', '절임', '무침', '조림', '구이', '튀김', 
+                '계란', '어묵', '두부', '샐러드', '소스', '드레싱', '참기름', '고추장', '쌈장', 
+                '닭가슴살', '육포', '스테이크' 
             ]
-            integrated_keywords = ['컵밥', '찌개밥', '국밥', '덮밥'] # 이미 밥이 포함된 경우
+            integrated_keywords = ['컵밥', '찌개밥', '국밥', '덮밥']
             
             redundant_groups = [
                 ['물', '생수', '에비앙', '삼다수', '아이시스', '평창수', '워터'],
                 ['라면', '컵라면', '불닭', '너구리', '신라면', '짜파게티', '비빔면'],
-                ['콜라', '사이다', '환타', '웰치스', '소다'], # 탄산 중복 방지
-                ['커피', '아메리카노', '라떼', '바리스타', '콜드브루'], # 커피 중복 방지
-                ['헛개', '컨디션', '여명', '숙취'], # 헛개차/숙취해소제 중복 방지!
-                ['우유', '두유', '요구르트', '요플레'], # 유제품 중복 방지
-                ['에너지바', '프로틴바', '초코바'] # 바 종류 중복 방지
+                ['음료', '콜라', '사이다', '쥬스', '주스', '에이드', '탄산', '커피', '우유', '차', '아메리카노', '라떼']
             ]
 
             rice_mask = filtered_df['name'].str.contains('|'.join(rice_staple_keywords), case=False, na=False)
@@ -157,7 +159,6 @@ if st.button("✨ 최적의 꿀조합 찾기", use_container_width=True):
                 cat_df = cat_df[cat_df['price'] <= budget * 0.6] 
 
                 if cat == '식사류' and not cat_df.empty:
-                    # [수정 2] meal_items_mask 로직 강화
                     mask_include = cat_df['name'].str.contains('|'.join(meal_keywords), case=False, na=False)
                     mask_exclude = cat_df['name'].str.contains('|'.join(meal_exclude_keywords), case=False, na=False)
                     meal_items_mask = mask_include & ~mask_exclude
@@ -211,26 +212,23 @@ if st.button("✨ 최적의 꿀조합 찾기", use_container_width=True):
                                               not any(nrkw in item['name'] for nrkw in not_rice_keywords)
                                               for item in current_items)
                         
-                        # [수정 3] is_complete_meal 로직 강화
                         is_complete_meal = any(
                             any(ikw in item['name'] for ikw in ['도시락', '삼각김밥', '김밥', '컵밥', '덮밥', '샌드위치', '햄버거']) and 
                             not any(ekw in item['name'] for ekw in meal_exclude_keywords) 
                             for item in current_items
                         )
                         
-                        # [개선 1] 국물류 단독일 경우 밥 추가 및 실패 시 조합 탈락
                         if has_soup and not has_staple_rice and not is_complete_meal and rice_candidates:
                             rice_added_success = False
                             for rice_item in rice_candidates:
                                 if sum(item['price'] for item in current_items) + rice_item['price'] <= budget:
                                     current_items.append(rice_item)
-                                    has_staple_rice = True # 밥이 추가되었음을 표시
+                                    has_staple_rice = True 
                                     rice_added_success = True
                                     break
-                            if not rice_added_success: # 밥 추가에 실패했다면 이 조합은 탈락
+                            if not rice_added_success:
                                 continue
 
-                        # [개선 2] 맨밥 단독일 경우 반찬 추가 및 실패 시 조합 탈락
                         has_side = any(any(skw in item['name'] for skw in side_dish_keywords) for item in current_items)
                         if not has_soup and not is_complete_meal and not has_side and has_staple_rice and side_candidates:
                             side_added_success = False
@@ -240,48 +238,25 @@ if st.button("✨ 최적의 꿀조합 찾기", use_container_width=True):
                                         current_items.append(side_item)
                                         side_added_success = True
                                         break
-                            if not side_added_success: # 반찬 추가에 실패했다면 이 조합은 탈락
+                            if not side_added_success:
                                 continue
                     
-                    # --- 예산 기반 추가 담기 (카테고리 우선순위 및 다양성 확보) ---
+                    # --- 예산 기반 추가 담기 (중복 방지 및 고단가 위주) ---
                     current_total = sum(item['price'] for item in current_items)
                     
-                    if budget - current_total >= 1000 and len(current_items) < 5: # 최대 5개까지 담을 수 있도록 여유 확보
-                        
-                        # 1. 질문자님의 우선순위 규칙 적용 (타겟 카테고리 설정)
-                        target_fill_cats = []
-                        if '식사류' in selected_categories and '간식류' in selected_categories:
-                            target_fill_cats = ['식사류', '간식류'] # 식사+간식이면 둘 다 골고루
-                        elif '식사류' in selected_categories:
-                            target_fill_cats = ['식사류'] # 식사가 있으면 무조건 식사 추가
-                        elif '간식류' in selected_categories:
-                            target_fill_cats = ['간식류'] # 간식이 있으면 무조건 간식 추가
-                        else:
-                            target_fill_cats = selected_categories # 음료+생수 조합이면 아무거나
-                            
-                        # 2. 타겟 카테고리에 맞는 후보만 쏙쏙 뽑기
+                    if budget - current_total >= 1500 and len(current_items) < 4:
                         all_selectable_candidates = []
                         for pool in candidate_items:
-                            for item in pool:
-                                if item['category'] in target_fill_cats:
-                                    all_selectable_candidates.append(item)
-                                    
-                        # 3. 비싼 순서(price reverse) 정렬 제거 -> 무작위 섞기 (헛개차 도배 방지 핵심!)
-                        random.shuffle(all_selectable_candidates)
+                            all_selectable_candidates.extend(pool)
+                        all_selectable_candidates.sort(key=lambda x: x['price'], reverse=True)
 
-                        # 4. 상품 추가
                         for extra_item in all_selectable_candidates:
-                            # 이름이 완전히 똑같지 않은지 확인
                             if extra_item['name'] not in [it['name'] for it in current_items]:
                                 temp_items = current_items + [extra_item]
-                                
-                                # 동종 상품(redundant_groups)이 아니고, 예산을 초과하지 않으면 추가!
                                 if not has_redundancy(temp_items) and sum(it['price'] for it in temp_items) <= budget:
                                     current_items = temp_items
                                     current_total += extra_item['price']
-                                    
-                                    # 예산이 1000원 미만으로 남았거나, 5개를 다 채웠으면 멈춤
-                                    if budget - current_total < 1000 or len(current_items) >= 5:
+                                    if budget - current_total < 1000 or len(current_items) >= 4:
                                         break
 
                     total_price = sum(item['price'] for item in current_items)
@@ -307,7 +282,8 @@ if st.button("✨ 최적의 꿀조합 찾기", use_container_width=True):
                 
                 # 5. 결과 출력
                 if top_5:
-                    st.subheader(f"🎉 예산 {budget:,}원으로 찾은 최고의 꿀조합 Top {len(top_5)}")
+                    st.subheader("🎉 짜잔! 당신을 위한 최고의 꿀조합이 도착했어요!")
+                    st.markdown("##### 예산을 꽉 채워 풍성하고, 할인 혜택까지 놓치지 않은 알찬 구성!")
                     
                     cols = st.columns(len(top_5))
                     for idx, combo_data in enumerate(top_5):
@@ -324,6 +300,6 @@ if st.button("✨ 최적의 꿀조합 찾기", use_container_width=True):
                                 st.markdown(f"**합계: {int(combo_data['total_price']):,}원**")
                                 st.markdown(f"<span style='color:red; font-weight:bold;'>🔥 {int(combo_data['saved_money']):,}원 절약!</span>", unsafe_allow_html=True)
                 else:
-                    st.error("아쉽게도 조건에 맞는 조합을 찾지 못했어요. 예산을 올리거나 카테고리를 변경해보세요!")
+                    st.error("😥 아쉽게도 조건에 맞는 꿀조합을 찾지 못했어요. 예산을 조금 더 늘리거나, 다른 카테고리를 선택해보시는 건 어떠세요?")
             else:
-                st.warning("선택하신 카테고리 중 일부에 해당하는 상품이 없습니다. 다른 카테고리를 선택해주세요.")
+                st.warning("⚠️ 선택하신 카테고리 중 일부에 해당하는 상품이 없습니다. 다른 카테고리를 선택해주세요.")
