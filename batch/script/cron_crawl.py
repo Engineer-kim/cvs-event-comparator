@@ -38,11 +38,11 @@ def get_log_dir_for_time(t: datetime):
 
 
 def make_datetime(fixed_dt: datetime):
-    class DummyDateTime:
+    class DateTime:
         @staticmethod
         def now():
             return fixed_dt
-    return DummyDateTime
+    return DateTime
 
 
 def write_log(msg: str, run_time: datetime):
@@ -56,9 +56,7 @@ def write_log(msg: str, run_time: datetime):
     print(line, end='')
 
 
-def get_next_month_data_batch(year: int, month: int, dry_run: bool = False):
-    """지정된 연/월의 배치 크롤링 실행. 모든 시간은 KST 기준."""
-    run_time = datetime(year, month, 1, 0, 30, 0)
+def get_next_month_data_batch(year: int, month: int, dry_run: bool = False, run_time: datetime = None):
     prepare_env()
 
     write_log('=== BATCH START ===', run_time)
@@ -117,7 +115,6 @@ def get_next_month_data_batch(year: int, month: int, dry_run: bool = False):
         except Exception as e:
             write_log(f'emart24 crawl failed: {e}', run_time)
 
-    # post processing
     try:
         write_log('Starting data_cleaner.clean_and_merge', run_time)
         from utils.data_cleaner import clean_and_merge

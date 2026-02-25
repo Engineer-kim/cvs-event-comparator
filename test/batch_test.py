@@ -6,7 +6,7 @@ import sys, os
 PROJECT_ROOT = os.path.dirname(os.path.dirname(__file__))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
-from batch.cron_crawl import get_next_month_data_batch
+from batch.script.cron_crawl import get_next_month_data_batch
 
 TARGET_YEAR = 2026
 TARGET_MONTH = 2
