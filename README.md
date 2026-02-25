@@ -22,6 +22,7 @@ conv-dashboard/
 ┃   ┣━━ 📄 02_Brand_Comparison.py   # 브랜드별 특징 분석
 ┃   ┗━━ 📄 03_Category_Trends.py    # 카테고리별 트렌드
 ┃   ┗━━ 📄 04_budget_combination
+┃   ┗━━ 📄 05_diet_guide
 ┃
 ┣━━ 📂 scraper/                     # [수집] 브랜드별 크롤러 패키지
 ┃   ┣━━ 📄 __init__.py              # 패키지 초기화 파일
@@ -112,4 +113,3 @@ CU 공식 홈페이지 '전체' 행사 탭 데이터 전수 수집 및 전처리
 크롤러 실행: python script.py
 
 결과 확인: 생성된 CU_260223.csv 파일을 분석 모듈에서 로드하여 사용
-
