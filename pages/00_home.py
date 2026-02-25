@@ -135,6 +135,7 @@ if df_time is not None:
         exclude_keywords = ['쏘피', '좋은', '섬유유연제', '티셔츠', '순수한면', '면도날', '라엘', '순면', '비비안']
         filter_condition = recommend_df['name'].str.contains('|'.join(exclude_keywords), na=False)
         recommend_df = recommend_df[~filter_condition]
+        recommend_df = recommend_df[recommend_df['event'] != '세일']
 
         display_items = recommend_df.sample(n=min(len(recommend_df), 5))
         cols = st.columns(5)
