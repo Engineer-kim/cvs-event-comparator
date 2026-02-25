@@ -4,6 +4,11 @@ import pandas as pd
 
 st.set_page_config(page_title="편의점 행사 대시보드", page_icon="🏪", layout="wide")
 
+# 세션 메모리 초기화
+if 'recent_keywords' not in st.session_state:
+    st.session_state['recent_keywords'] = []
+
+
 # CSS 로드 (모든 페이지 공통)
 if os.path.exists("style.css"):
     with open("style.css", encoding="utf-8") as f:
