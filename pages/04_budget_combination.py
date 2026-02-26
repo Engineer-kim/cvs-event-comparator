@@ -127,7 +127,6 @@ def find_best_combinations(df, selected_categories, budget, search_keyword=""):
     # ---------------------------------------------------------
     # 1. 식사류 짝꿍 후보 추출 (전체 데이터 기반 - 기존 로직 100% 보존)
     # ---------------------------------------------------------
-    # 밥과 반찬 후보는 검색어와 관계없이 전체 DB에서 미리 확보해야 조합이 끊기지 않습니다.
     rice_mask = df['name'].str.contains('|'.join(RICE_STAPLE_KEYWORDS), case=False, na=False)
     not_rice_mask = df['name'].str.contains('|'.join(NOT_RICE_KEYWORDS), case=False, na=False)
     rice_candidates = df[rice_mask & ~not_rice_mask].sort_values(by=['unit_price']).head(15).to_dict('records')
@@ -190,7 +189,7 @@ def find_best_combinations(df, selected_categories, budget, search_keyword=""):
         if search_keyword and not any(search_keyword.lower() in i['name'].lower() for i in current_items):
             continue
 
-        # [팀 프로젝트 핵심 로직] 식사류 구성 보완
+        # 식사류 구성 보완
         if '식사류' in selected_categories:
             has_soup = any(any(k in i['name'] for k in SOUP_KEYWORDS) and not any(k in i['name'] for k in INTEGRATED_KEYWORDS) for i in current_items)
             has_staple_rice = any(any(k in i['name'] for k in RICE_STAPLE_KEYWORDS) and not any(k in i['name'] for k in NOT_RICE_KEYWORDS) for i in current_items)
@@ -269,7 +268,7 @@ if df.empty:
     st.error("데이터 로딩에 실패했습니다. 관리자에게 문의해주세요.")
     st.stop()
 
-# --- [추가] 세션 상태 초기화: 에러 방지를 위해 코드 상단에 위치해야 합니다 ---
+# 세션 상태 초기화: 에러 방지
 if 'budget_combinations' not in st.session_state:
     st.session_state.budget_combinations = []
 if 'budget_searched' not in st.session_state:
@@ -283,7 +282,7 @@ with st.container(border=True):
     with col2:
         selected_brands = st.multiselect("🏪 특정 편의점을 선호하시나요? (미선택 시 전체)", options=list(df['brand'].unique()), default=[])
 
-    # [핵심 추가] 키워드 검색창
+    # 키워드 검색창
     search_keyword = st.text_input("🔍 특정 상품을 포함하고 싶나요?", placeholder="예: 라면, 도시락, 삼각김밥 (입력하지 않으면 전체 추천)")
 
     allowed_categories = ['식사류', '간식류', '음료', '생수']
@@ -305,7 +304,7 @@ if st.button("✨ 최적의 꿀조합 찾기", use_container_width=True):
         with st.spinner(loading_msg):
             filtered_df = df[df['brand'].isin(selected_brands)] if selected_brands else df
             
-            # [핵심 수정] 함수 호출 시 search_keyword 인자를 전달함
+            # 함수 호출 시 search_keyword 인자를 전달함
             # 세션 상태에 결과를 저장하여 페이지가 새로고침되어도 데이터가 유지되도록 합니다.
             st.session_state.budget_combinations = find_best_combinations(
                 filtered_df, 
@@ -335,7 +334,7 @@ if top_combinations:
             
             st.write("") # 간격 조절
 
-            # 2. [핵심 수정] 한 조합 안의 상품들을 가로 컬럼으로 배치
+            # 2. 한 조합 안의 상품들을 가로 컬럼으로 배치
             items = combo['items']
             item_cols = st.columns(len(items)) # 상품 개수만큼 가로 칸 생성
             
