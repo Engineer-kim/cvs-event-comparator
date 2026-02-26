@@ -267,6 +267,18 @@ with r3_c2:
         </a>
     """, unsafe_allow_html=True)
 
+with r3_c3:
+    st.markdown("""
+        <a href="/jackpot_game" target="_self" style="text-decoration:none; color:inherit;">
+            <div class="dashboard-card" style="cursor:pointer;">
+                <div class="card-icon">🎰</div>
+                <div class="card-title">잭팟 게임!</div>
+                <div class="card-desc">똑같은 상품 3개를 맞추면 오늘 운세 대박! 행운의 메뉴를 잭팟으로 확인하세요.</div>
+                <div style="margin-top:20px; color:#58a6ff; font-weight:bold;">이동하기 →</div>
+            </div>
+        </a>
+    """, unsafe_allow_html=True)
+
 # 하단 브랜드 로고 섹션
 st.markdown("---")
 st.markdown("### 🏢 함께하는 브랜드")
