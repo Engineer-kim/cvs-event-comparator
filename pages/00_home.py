@@ -4,6 +4,7 @@ import pandas as pd
 import base64
 from datetime import datetime
 import pytz
+import streamlit.components.v1 as components
 
 # 한국 시간(KST) 설정
 KST = pytz.timezone('Asia/Seoul')
@@ -81,73 +82,105 @@ try:
     else:
         st.markdown("### 🎲 오늘의 핫딜 추천")
 
-
     if not display_df.empty:
         scroll_html = """<style>
-.horizontal-scroll-wrapper {
-    display: flex;
-    overflow-x: auto;
-    gap: 20px;
-    padding: 15px 5px 25px 5px;
-    scroll-behavior: smooth;
-}
-.horizontal-scroll-wrapper::-webkit-scrollbar {
-    height: 8px;
-}
-.horizontal-scroll-wrapper::-webkit-scrollbar-thumb {
-    background-color: #d1d5db;
-    border-radius: 10px;
-}
-.scroll-item {
-    flex: 0 0 200px;
-    border: 1px solid #eef0f2;
-    border-radius: 16px;
-    padding: 15px;
-    background: white;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-    text-align: left; /* 전체 왼쪽 정렬로 변경하여 가독성 향상 */
-    transition: transform 0.2s;
-}
-.scroll-item:hover {
-    transform: translateY(-5px);
-}
-.item-name {
-    font-size: 16px; /* 폰트 크기 확대 */
-    font-weight: bold;
-    color: #1a1a1a;
-    margin: 8px 0;
-    height: 42px; /* 두 줄 높이 확보 */
-    line-height: 1.3;
-    display: -webkit-box;
-    -webkit-line-clamp: 2; /* 최대 2줄까지 표시 */
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    word-break: break-all;
-}
-</style>
-<div class="horizontal-scroll-wrapper">"""
+    .horizontal-scroll-wrapper {
+        display: flex;
+        overflow: hidden;
+        gap: 20px;
+        padding: 15px 5px 25px 5px;
+        scroll-behavior: smooth;
+    }
+    .horizontal-scroll-wrapper::-webkit-scrollbar {
+        height: 8px;
+    }
+    .horizontal-scroll-wrapper::-webkit-scrollbar-thumb {
+        background-color: #d1d5db;
+        border-radius: 10px;
+    }
+    .scroll-item {
+        flex: 0 0 calc(20% - 16px); /* 5개씩 보이도록 계산, gap 포함 */
+        border: 1px solid #eef0f2;
+        border-radius: 16px;
+        padding: 15px;
+        background: white;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        text-align: left; /* 전체 왼쪽 정렬로 변경하여 가독성 향상 */
+        transition: transform 0.2s;
+        box-sizing: border-box;
+    }
+    .scroll-item:hover {
+        transform: translateY(-5px);
+    }
+    .item-name {
+        font-size: 16px; /* 폰트 크기 확대 */
+        font-weight: bold;
+        color: #1a1a1a;
+        margin: 8px 0;
+        height: 42px; /* 두 줄 높이 확보 */
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2; /* 최대 2줄까지 표시 */
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        word-break: break-all;
+    }
+    </style>
+    <div class="horizontal-scroll-wrapper" id="hotdeal-scroll">
+    """
 
         for idx, row in display_df.iterrows():
             img_url = row['img_url'] if pd.notna(row['img_url']) else "https://via.placeholder.com/150?text=No+Image"
             price = int(str(row['price']).replace(',', '')) if pd.notna(row['price']) else 0
             # 행사 종류에 따른 개당 가격 계산 로직 (기존 유지)
-            unit_price = price // 2 if row['event'] == '1+1' else (price * 2 // 3 if row['event'] == '2+1' else (price * 3 // 4 if row['event'] == '3+1' else price))
-            
+            unit_price = price // 2 if row['event'] == '1+1' else (
+                price * 2 // 3 if row['event'] == '2+1' else (price * 3 // 4 if row['event'] == '3+1' else price))
+
             brand_color = get_brand_color(row['brand'])
             scroll_html += f"""
-    <div class="scroll-item">
-        <img src="{img_url}" style="width:100%; height:130px; object-fit:contain; border-radius:8px; margin-bottom:12px;">
-        <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
-            <span style="font-size:0.8rem; color:{brand_color}; background:{brand_color}15; padding:2px 6px; border-radius:4px; font-weight:bold;">{row['brand']}</span>
-            <span style="font-size:11px; color:#ff4b4b; background:#fff0f0; padding:2px 6px; border-radius:4px; font-weight:bold;">{row['event']}</span>
-        </div>
-        <div class="item-name">{row['name']}</div>
-        <div style="font-size:18px; color:#1a1a1a; font-weight:900;">{price:,}원</div>
-        <div style="font-size:13px; color:#3182f6; font-weight:bold; margin-top:4px;">✨ 개당 {unit_price:,}원</div>
-    </div>"""
-        scroll_html += "</div>"
-        st.markdown(scroll_html, unsafe_allow_html=True)
+        <div class="scroll-item">
+            <img src="{img_url}" style="width:100%; height:130px; object-fit:contain; border-radius:8px; margin-bottom:12px;">
+            <div style="display: flex; align-items: center; gap: 5px; margin-bottom: 5px;">
+                <span style="font-size:0.8rem; color:{brand_color}; background:{brand_color}15; padding:2px 6px; border-radius:4px; font-weight:bold;">{row['brand']}</span>
+                <span style="font-size:11px; color:#ff4b4b; background:#fff0f0; padding:2px 6px; border-radius:4px; font-weight:bold;">{row['event']}</span>
+            </div>
+            <div class="item-name">{row['name']}</div>
+            <div style="font-size:18px; color:#1a1a1a; font-weight:900;">{price:,}원</div>
+            <div style="font-size:13px; color:#3182f6; font-weight:bold; margin-top:4px;">✨ 개당 {unit_price:,}원</div>
+        </div>"""
+
+        scroll_html += """
+    </div>
+
+    <script>
+    const container = document.getElementById("hotdeal-scroll");
+    const items = container.querySelectorAll(".scroll-item");
+
+    items.forEach((el, i) => {
+        if (i >= 10) el.style.display = "none";
+    });
+
+    let currentIndex = 0;
+    const visibleCount = 5;
+
+    function slide() {
+        const itemWidth = items[0].offsetWidth + 20;
+        currentIndex += visibleCount;
+
+        if (currentIndex >= 10) currentIndex = 0;
+
+        container.scrollTo({
+            left: itemWidth * currentIndex,
+            behavior: "smooth"
+        });
+    }
+
+    setInterval(slide, 4000);
+    </script>
+    """
+
+    components.html(scroll_html, height=420, scrolling=False)
 except Exception as e:
     pass
 
