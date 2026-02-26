@@ -3,6 +3,11 @@ import os
 import pandas as pd
 import base64
 from datetime import datetime
+import pytz
+
+# 한국 시간(KST) 설정
+KST = pytz.timezone('Asia/Seoul')
+now_hour = datetime.now(KST).hour
 
 # 로컬 이미지를 HTML에서 사용하기 위한 base64 인코딩 함수
 def get_base64_image(image_path):
@@ -10,6 +15,34 @@ def get_base64_image(image_path):
         return None
     with open(image_path, "rb") as img_file:
         return base64.b64encode(img_file.read()).decode()
+    
+@st.cache_data
+def get_fixed_hot_deals(recent_keywords):
+    try:
+        df_main = pd.read_csv('data/categorized_data.csv')
+        df_main['event'] = df_main['event'].astype(str).str.replace(' ', '', regex=False)
+        df_main = df_main[df_main['event'].str.contains(r'\+', na=False, regex=True)]
+        
+        display_df = pd.DataFrame()
+
+        if recent_keywords:
+            rec_list = []
+            for kwd in recent_keywords:
+                matched = df_main[df_main['name'].astype(str).str.contains(kwd, case=False, na=False)]
+                rec_list.append(matched)
+            if rec_list:
+                display_df = pd.concat(rec_list).drop_duplicates(subset=['name', 'brand', 'event'])
+        
+        if len(display_df) < 10 and not df_main.empty:
+            shortfall = 10 - len(display_df)
+            remaining_df = df_main.drop(display_df.index, errors='ignore')
+            if not remaining_df.empty:
+                fill_df = remaining_df.sample(n=min(shortfall, len(remaining_df)))
+                display_df = pd.concat([display_df, fill_df])
+        
+        return display_df.head(10)
+    except:
+        return pd.DataFrame()
 
 # --- 메인 대시보드 ---
 
@@ -26,31 +59,15 @@ st.markdown(f"""
 
 # 2. 추천 상품 섹션 (가로 스크롤)
 try:
-    df_main = pd.read_csv('data/categorized_data.csv')
-    df_main['event'] = df_main['event'].astype(str).str.replace(' ', '', regex=False)
-    df_main = df_main[df_main['event'].str.contains(r'\+', na=False, regex=True)]
-    display_df = pd.DataFrame()
+    current_keywords = st.session_state.get('recent_keywords', [])
+    display_df = get_fixed_hot_deals(current_keywords)
 
     # 타이틀 
-    if 'recent_keywords' in st.session_state and st.session_state['recent_keywords']:
+    if current_keywords:
         st.markdown("### 🎁 취향 저격 맞춤 추천")
-        rec_list = []
-        for kwd in st.session_state['recent_keywords']:
-            matched = df_main[df_main['name'].astype(str).str.contains(kwd, case=False, na=False)]
-            rec_list.append(matched)
-        if rec_list:
-            display_df = pd.concat(rec_list).drop_duplicates(subset=['name', 'brand', 'event'])
     else:
         st.markdown("### 🎲 오늘의 핫딜 추천")
 
-    if len(display_df) < 10 and not df_main.empty:
-        shortfall = 10 - len(display_df)
-        remaining_df = df_main.drop(display_df.index, errors='ignore') if not display_df.empty else df_main
-        if not remaining_df.empty:
-            fill_df = remaining_df.sample(n=min(shortfall, len(remaining_df)))
-            display_df = pd.concat([display_df, fill_df])
-
-    display_df = display_df.head(10)
 
     if not display_df.empty:
         scroll_html = """<style>
@@ -101,17 +118,9 @@ except Exception as e:
 # ------ 여기부터 시간대별로 상품 추천해주는 기능 (위치 이동됨) ------
 st.markdown("<br>", unsafe_allow_html=True)
 
-@st.cache_data(ttl=3600)
-def load_home_data():
-    file_path = os.path.join('data', 'categorized_data.csv')
-    if os.path.exists(file_path):
-        return pd.read_csv(file_path)
-    return None
-
-df_time = load_home_data()
+df_time = pd.read_csv('data/categorized_data.csv')
 
 if df_time is not None:
-    now_hour = datetime.now().hour
     if 6 <= now_hour < 11:
         target_cat, title, icon = ["식사류"], "🌅 바쁜 아침, 든든한 한 끼!", "🥛"
     elif 11 <= now_hour < 14:
