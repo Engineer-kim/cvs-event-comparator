@@ -180,7 +180,7 @@ try:
     </script>
     """
 
-    components.html(scroll_html, height=420, scrolling=False)
+    components.html(scroll_html, height=350, scrolling=False)
 except Exception as e:
     pass
 
