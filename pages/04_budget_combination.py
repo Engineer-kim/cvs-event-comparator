@@ -268,20 +268,46 @@ if top_combinations:
     st.subheader("🎉 짜잔! 당신을 위한 최고의 꿀조합이 도착했어요!")
     st.markdown("##### 예산을 꽉 채워 풍성하고, 할인 혜택까지 놓치지 않은 알찬 구성!")
 
-    cols = st.columns(len(top_combinations))
+    # 1. 추천 조합(순위)은 세로로 하나씩 크게 배치
     for idx, combo in enumerate(top_combinations):
-        with cols[idx]:
-            with st.container(border=True):
-                st.markdown(f"#### 🥇 추천 {idx + 1}위")
-                for item_idx, item in enumerate(combo['items']):
-                    img_url = item['img_url'] if pd.notna(item['img_url']) else "https://via.placeholder.com/100"
-                    st.image(img_url, width=100)
-                    st.markdown(f"**{item['name']}** ({item['brand']})")
-                    st.markdown(f"_{item['event']}_ | {item['price']:,}원")
+        with st.container(border=True):
+            # 헤더: 순위와 합계 정보를 가로로 배치
+            header_col1, header_col2 = st.columns([3, 1])
+            with header_col1:
+                st.markdown(f"### 🍯 추천 {idx + 1}순위")
+            with header_col2:
+                st.markdown(f"<div style='text-align:right;'><b style='font-size:1.1rem;'>총 {int(combo['total_price']):,}원</b><br><span style='color:#ff4b4b; font-weight:bold;'>🔥 {int(combo['saved_money']):,}원 절약</span></div>", unsafe_allow_html=True)
+            
+            st.write("") # 간격 조절
+
+            # 2. [핵심 수정] 한 조합 안의 상품들을 가로 컬럼으로 배치
+            items = combo['items']
+            item_cols = st.columns(len(items)) # 상품 개수만큼 가로 칸 생성
+            
+            for i, item in enumerate(items):
+                with item_cols[i]:
+                    brand_color = get_brand_color(item['brand'])
+                    img_url = item['img_url'] if pd.notna(item['img_url']) else "https://via.placeholder.com/150"
+                    
+                    # 상품 카드 스타일링
+                    st.markdown(f"""
+                        <div style="background-color: #1c1c1e; border-radius: 12px; padding: 12px; border: 1px solid #333; text-align: center; height: 100%;">
+                            <img src="{img_url}" style="width: 100%; height: 80px; object-fit: contain; margin-bottom: 10px;">
+                            <div style="font-size: 0.8rem; font-weight: bold; color: white; height: 35px; overflow: hidden; line-height: 1.2; margin-bottom: 5px;">{item['name']}</div>
+                            <div style="margin-bottom: 8px;">
+                                <span style='color:{brand_color}; background:{brand_color}15; padding:2px 6px; border-radius:4px; font-weight:bold; font-size:0.75rem;'>{item['brand']}</span>
+                            </div>
+                            <div style="font-size: 0.9rem; color: #58a6ff; font-weight: bold;">{item['price']:,}원</div>
+                            <div style="font-size: 0.7rem; color: #888; margin-top: 3px;">{item['event']}</div>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # 장바구니 버튼 연동
                     cart_key = (item['name'], item['brand'], item['event'])
                     in_cart = is_in_cart(item['name'], item['brand'], item['event'])
                     unit_price = int(item.get('unit_price', item['price']))
-                    btn_key = f"budget_cart_{idx}_{item_idx}"
+                    btn_key = f"budget_cart_{idx}_{i}"
+                    
                     if in_cart:
                         if st.button("✅ 담김", key=btn_key, use_container_width=True):
                             remove_from_cart(cart_key)
@@ -290,8 +316,6 @@ if top_combinations:
                         if st.button("🛒 담기", key=btn_key, use_container_width=True):
                             add_to_cart(item['name'], item['brand'], item['event'], int(item['price']), unit_price)
                             st.rerun()
-                    st.divider()
-                st.markdown(f"**합계: {int(combo['total_price']):,}원**")
-                st.markdown(f"<span style='color:red; font-weight:bold;'>🔥 {int(combo['saved_money']):,}원 절약!</span>", unsafe_allow_html=True)
+            st.write("") 
 elif st.session_state.get('budget_searched') and not top_combinations:
     st.error("😥 아쉽게도 조건에 맞는 꿀조합을 찾지 못했어요. 예산을 조금 더 늘리거나, 다른 카테고리를 선택해보시는 건 어떠세요?")
