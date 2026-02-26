@@ -175,7 +175,17 @@
     border: 1px solid #30363d;
 }
 
-/* 챗봇 관련 스타일 */
+/* ── 장바구니 플로팅 버튼 스타일 ────────────────────
+   render_floating_cart()가 주입하는 CSS와 함께 동작합니다.
+   popover 내부 패널 너비 보정
+──────────────────────────────────────────────── */
+div[data-testid="stPopoverBody"] {
+    min-width: 340px !important;
+    max-height: 70vh !important;
+    overflow-y: auto !important;
+}
+
+
 .chatbot-float-btn {
     position: fixed;
     bottom: 30px;

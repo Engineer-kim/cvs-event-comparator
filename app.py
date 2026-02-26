@@ -5,6 +5,7 @@ from datetime import datetime
 
 from batch.batch_scheduler_manager import get_scheduler_manager
 from utils.chatbot import show_chatbot
+from utils.cart import init_cart
 
 st.set_page_config(page_title="편의점 행사 대시보드", page_icon="🏪", layout="wide")
 scheduler = get_scheduler_manager()
@@ -22,6 +23,9 @@ scheduler.add_job(
 # 세션 메모리 초기화
 if 'recent_keywords' not in st.session_state:
     st.session_state['recent_keywords'] = []
+
+# 장바구니 세션 초기화
+init_cart()
 
 
 # CSS 로드 (모든 페이지 공통)
@@ -48,7 +52,7 @@ def show_sidebar():
         st.sidebar.markdown("### 📊 실시간 현황")
         st.sidebar.write(f"✅ 총 행사 상품: **{stats['total_count']:,}개**")
         st.sidebar.write(f"🏢 참여 브랜드: **{stats['brands_count']}개**")
-    
+
     st.sidebar.markdown("---")
     st.sidebar.caption("© 2026 Convenience Store Dashboard")
 

@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import os
+from utils.cart import init_cart, render_cart_button, render_floating_cart
 
 # 브랜드별 고유 컬러 반환 함수
 def get_brand_color(brand):
@@ -46,6 +47,9 @@ def get_data():
 
 
 df = get_data()
+
+init_cart()
+render_floating_cart()
 
 st.title("💎 최고의 가성비 아이템 (할인율 TOP 50)")
 
@@ -125,6 +129,7 @@ if not df.empty:
                                 unsafe_allow_html=True)
                     st.markdown(f"#### 개당 {int(row['unit_price']):,}원")
                     st.caption(f"정가 {int(row['price']):,}원")
+                    render_cart_button(row, f"cart_best_{int(row.name)}")
                 st.divider()
 
         # -------------------------

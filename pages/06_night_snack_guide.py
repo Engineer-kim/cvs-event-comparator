@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 import os
 from datetime import datetime
+from utils.cart import init_cart, render_cart_button, render_floating_cart
 
 # 브랜드별 고유 컬러 반환 함수
 def get_brand_color(brand):
@@ -78,6 +79,9 @@ def get_data():
     return df.drop_duplicates(subset=['name', 'event', 'brand'])
 
 df = get_data()
+
+init_cart()
+render_floating_cart()
 
 # 4. 타이틀 및 헤더
 st.title(f"🌙 {datetime.now().strftime('%Y년 %m월')} 야식 & 안주 가이드")
@@ -177,6 +181,7 @@ if not df.empty:
                         </div>
                     </div>
                 """, unsafe_allow_html=True)
+                render_cart_button(row, f"cart_snack_{idx}")
 
         # 9. 하단 페이지네이션 컨트롤
         st.markdown("---")

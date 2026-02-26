@@ -3,6 +3,7 @@ import pandas as pd
 import random
 import time
 import os
+from utils.cart import init_cart, add_to_cart, is_in_cart, remove_from_cart, render_floating_cart
 
 # 브랜드별 고유 컬러 반환 함수
 def get_brand_color(brand):
@@ -27,6 +28,9 @@ def load_game_data():
 
 df = load_game_data()
 game_df = df[(df['img_url'].notna()) & (~df['img_url'].str.contains('7-eleven.co.kr', na=False)) & (df['name'].notna())].copy()
+
+init_cart()
+render_floating_cart()
 
 # 2. 강제 중앙 정렬 CSS
 st.markdown("""
@@ -186,3 +190,26 @@ if not game_df.empty:
             <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
             <script>confetti({{ particleCount: 150, spread: 70, origin: {{ y: 0.6 }} }});</script>
         """, unsafe_allow_html=True)
+
+        # 장바구니 담기 버튼
+        won_item = slots[0]
+        _, jackpot_cart_col, _ = st.columns([1, 2, 1])
+        with jackpot_cart_col:
+            cart_key = (won_item['name'], won_item['brand'], won_item['event'])
+            in_cart = is_in_cart(won_item['name'], won_item['brand'], won_item['event'])
+            unit_price = won_item.get('unit_price', won_item['price'])
+            st.markdown("<br>", unsafe_allow_html=True)
+            if in_cart:
+                if st.button("✅ 장바구니에 담김 (취소)", use_container_width=True, key="jackpot_cart_btn"):
+                    remove_from_cart(cart_key)
+                    st.rerun()
+            else:
+                if st.button("🛒 당첨 상품 장바구니 담기!", use_container_width=True, key="jackpot_cart_btn", type="primary"):
+                    add_to_cart(
+                        name=won_item['name'],
+                        brand=won_item['brand'],
+                        event=won_item['event'],
+                        price=int(won_item['price']),
+                        unit_price=int(unit_price),
+                    )
+                    st.rerun()
