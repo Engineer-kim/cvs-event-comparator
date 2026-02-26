@@ -26,15 +26,14 @@ def show_chatbot():
                 "role": "assistant",
                 "content": "🏪 **편의점 꿀팁봇 사용법**\n\n"
                            "1. **상품 검색**: 궁금한 상품명을 입력하세요.\n"
-                           "2. **행사 확인**: 1+1, 2+1 등 행사 정보를 묻어보세요.\n"
+                           "2. **행사 확인**: 1+1, 2+1 등 행사 정보를 물어보세요.\n"
                            "3. **카테고리**: '과자', '도시락' 등으로 검색 가능합니다."
             }
         ]
 
-    # 배경색 문제 해결 및 기존 UI 스타일 유지
+    # 기존 UI 스타일 유지
     st.markdown("""
     <style>
-    /* 팝업 버튼 위치 및 디자인 */
     div[data-testid="stPopover"] {
         position: fixed !important; 
         bottom: 30px !important; 
@@ -52,7 +51,6 @@ def show_chatbot():
         border: none !important; 
         font-size: 30px !important;
     }
-    /* 팝업 본체 및 배경색 고정 (검정색 변현 방지) */
     div[data-testid="stPopoverBody"] {
         position: fixed !important; 
         bottom: 110px !important; 
@@ -65,7 +63,6 @@ def show_chatbot():
         padding: 10px !important; 
         overflow: hidden !important;
     }
-    /* 입력창 배경색 최적화 */
     .stChatFloatingInputContainer {
         background-color: transparent !important;
     }
@@ -78,20 +75,16 @@ def show_chatbot():
     with st.popover("💬"):
         st.markdown("<h4 style='color:#58a6ff; margin-bottom:10px;'>🏪 편의점 꿀팁봇</h4>", unsafe_allow_html=True)
 
-        # 채팅 컨테이너
         chat_container = st.container(height=400)
 
-        # 기존 메시지 출력
         for msg in st.session_state.messages:
             with chat_container:
                 with st.chat_message(msg["role"]):
                     st.markdown(msg["content"])
 
-        # 채팅 입력 (중복 방지를 위해 고정 키 사용)
         prompt = st.chat_input("질문을 입력하세요...", key="chatbot_input_unique")
 
         if prompt:
-            # 사용자 메시지 기록
             st.session_state.messages.append({"role": "user", "content": prompt})
             with chat_container:
                 with st.chat_message("user"):
@@ -103,27 +96,40 @@ def show_chatbot():
                         placeholder = st.empty()
                         placeholder.markdown("…")
 
-                        # 데이터 준비
                         df = load_chatbot_data()
                         context = ""
+
                         if not df.empty:
-                            sample_df = df.sample(n=min(15, len(df)))
-                            for _, row in sample_df.iterrows():
+                            # [핵심 수정] 검색어 최적화: 사용자의 질문 키워드가 포함된 데이터 우선 필터링
+                            keywords = prompt.split()
+                            search_query = "|".join(keywords)
+                            # 이름(name)이나 카테고리(category)에서 키워드 검색
+                            filtered_df = df[df['name'].str.contains(search_query, case=False, na=False) |
+                                             df['category'].str.contains(search_query, case=False, na=False)]
+
+                            # 검색 결과가 있으면 검색 결과를, 없으면 랜덤 샘플을 사용
+                            if not filtered_df.empty:
+                                target_df = filtered_df.head(20)  # 관련 상품 최대 20개 전달
+                            else:
+                                target_df = df.sample(n=min(15, len(df)))
+
+                            for _, row in target_df.iterrows():
                                 context += f"[{row['brand']}] {row['name']} | {row['price']}원 | {row['event']} | {row['category']}\n"
                         else:
                             context = "조건에 맞는 행사 상품이 없습니다."
 
-                        system_prompt = f"""
-                        당신은 센스있고 친절한 편의점 행사 도우미예요.
-                        사용자가 묻는 질문에 대해 아래 [검색된 데이터]만 사용해서 답변하세요.
-                        답변은 자연스럽고 친근하게, 반드시 제공된 데이터 정보만 사용하세요.
-                        언어는 무조건 한국어만 사용 그외의 언어 사용금지
-                        [검색된 데이터]
-                        {context}
-                        """
+                        system_prompt = (
+                            f"당신은 센스있고 친절한 편의점 행사 도우미예요.\n"
+                            f"사용자가 묻는 질문에 대해 아래 [검색된 데이터]를 참고해서 답변하세요.\n"
+                            f"사용자가 포괄적인 단어(예: 음료, 간식 등)를 말하면, 데이터에 있는 구체적인 관련 상품들을 유추하여 최적의 답변을 제공해야 합니다.\n"
+                            f"데이터에 '아메리카노'가 있고 사용자가 '커피'를 묻는다면 관련 상품으로 판단하고 답변하세요.\n"
+                            f"답변은 자연스럽고 친근하게, 반드시 한국어만 사용하세요.\n"
+                            f"상품명, 가격, 행사 정보를 한눈에 보기 좋게 정리하세요.\n"
+                            f"[검색된 데이터]\n{context}"
+                        )
+
                         full_response = ""
                         try:
-                            # Groq 스트리밍 응답
                             response = client.chat.completions.create(
                                 model="llama-3.3-70b-versatile",
                                 messages=[
@@ -146,5 +152,4 @@ def show_chatbot():
                             full_response = f"오류 발생: {e}"
                             placeholder.markdown(full_response)
 
-                        # 기록 저장
                         st.session_state.messages.append({"role": "assistant", "content": full_response})
