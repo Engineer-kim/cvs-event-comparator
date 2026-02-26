@@ -30,7 +30,7 @@ total_pages = math.ceil(total_items / ITEMS_PER_PAGE) if total_items > 0 else 1
 if 'event_page' not in st.session_state:
     st.session_state['event_page'] = 1
 
-# 페이지 오류 방지 
+# 페이지 오류 방지
 if st.session_state['event_page'] > total_pages:
     st.session_state['event_page'] = total_pages
 if st.session_state['event_page'] < 1:
@@ -38,7 +38,6 @@ if st.session_state['event_page'] < 1:
 
 col1, col2, col3 = st.columns([1, 2, 1])
 with col1:
-    # 1페이지일 때는 이전 버튼 완벽하게 비활성화
     if st.button("⬅️ 이전", disabled=(st.session_state['event_page'] <= 1)):
         st.session_state['event_page'] -= 1
         st.rerun()
@@ -47,7 +46,6 @@ with col2:
     st.markdown(f"<div style='text-align: center;'><b>{st.session_state['event_page']} / {total_pages} 페이지</b> (총 {total_items}건)</div>", unsafe_allow_html=True)
     
 with col3:
-    # 마지막 페이지일 때는 다음 버튼 비활성화
     if st.button("다음 ➡️", disabled=(st.session_state['event_page'] >= total_pages)):
         st.session_state['event_page'] += 1
         st.rerun()
@@ -64,17 +62,24 @@ if display_df.empty:
     st.warning("수집된 행사 소식이 없습니다.")
 else:
     for _, row in display_df.iterrows():
-        # 24시간 이내에 뜬 소식은 new 띄우기
+        # 24시간 이내에 뜬 소식은 불꽃 뱃지 달아주기
         is_new = (now - row['pub_date']) < timedelta(hours=24)
         badge = "<span style='color:#ff4b4b; font-weight:bold;'>🔥 [NEW]</span>" if is_new else ""
         
+        # 날짜를 보기 좋게 YYYY-MM-DD 형식으로 변환
+        date_str = row['pub_date'].strftime("%Y-%m-%d")
+        
+        # 제목은 왼쪽, 날짜는 오른쪽에 배치 
         st.markdown(f"""
         <div style="padding: 15px; border-bottom: 1px solid #444; display: flex; flex-direction: column;">
             <div style="font-size: 13px; color: #bbb; margin-bottom: 5px;">
                 <span style="background-color: #58a6ff; color: white; padding: 2px 8px; border-radius: 10px; margin-right: 5px;">{row['brand']}</span>
             </div>
-            <a href="{row['link']}" target="_blank" style="font-size: 17px; font-weight: bold; text-decoration: none; color: #ffffff;">
-                {badge} {row['title']}
-            </a>
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <a href="{row['link']}" target="_blank" style="font-size: 17px; font-weight: bold; text-decoration: none; color: #ffffff;">
+                    {badge} {row['title']}
+                </a>
+                <span style="font-size: 14px; color: #888;">{date_str}</span>
+            </div>
         </div>
         """, unsafe_allow_html=True)
