@@ -15,3 +15,5 @@ pytz
 groq
 python-dotenv
 streamlit-float
+selenium
+webdriver-manager

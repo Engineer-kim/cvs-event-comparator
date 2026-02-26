@@ -63,11 +63,12 @@ night_snack_page = st.Page("pages/06_night_snack_guide.py", title="🌙 야식 &
 random_picker_page = st.Page("pages/08_random_picker.py", title="🎁 럭키박스")
 map_page = st.Page("pages/07_convenience_store_map.py", title="📍 편의점 지도")
 jackpot_game_page = st.Page("pages/09_jackpot_game.py", title="🎰 잭팟 게임")
+event_news_page = st.Page("pages/10_event_news.py", title="🎉 행사 및 이벤트 소식")
 
 # 내비게이션 구성
 pg = st.navigation({
     "대시보드": [home_page],
-    "상세 서비스": [summary_page, comparison_page, best_value_page, budget_page, diet_guide_page, night_snack_page, random_picker_page, map_page, jackpot_game_page]
+    "상세 서비스": [summary_page, comparison_page, best_value_page, budget_page, diet_guide_page, night_snack_page, random_picker_page, map_page, jackpot_game_page, event_news_page]
 })
 
 # 사이드바 실행

@@ -5,6 +5,8 @@ import base64
 from datetime import datetime
 import pytz
 import streamlit.components.v1 as components
+from utils.news_scraper import fetch_realtime_cvs_news
+from datetime import datetime, timedelta
 
 # 한국 시간(KST) 설정
 KST = pytz.timezone('Asia/Seoul')
@@ -358,6 +360,27 @@ with r3_c3:
             </div>
         </a>
     """, unsafe_allow_html=True)
+
+# 행사 및 이벤트 소식
+st.markdown("---")
+r1, r2 = st.columns([4, 1])
+with r1:
+    st.markdown("### 🎉 행사 및 이벤트 소식")
+with r2:
+    st.write("")
+    st.page_link("pages/10_event_news.py", label="더보기 +", icon="📰")
+
+try:
+    news_df = fetch_realtime_cvs_news()
+    top_news = news_df.head(5) # 메인에는 5개만
+    now = datetime.now()
+    
+    for _, row in top_news.iterrows():
+        is_new = (now - row['pub_date']) < timedelta(hours=24)
+        badge = "🔥" if is_new else "👉"
+        st.markdown(f"- {badge} **[{row['brand']}]** [{row['title']}]({row['link']})", unsafe_allow_html=True)
+except Exception as e:
+    st.caption("현재 행사 소식을 불러올 수 없습니다.")
 
 # 하단 브랜드 로고 섹션
 st.markdown("---")
