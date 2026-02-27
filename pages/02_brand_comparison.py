@@ -1,12 +1,9 @@
 import streamlit as st
 import pandas as pd
 import plotly.express as px
-import plotly.graph_objects as go
 import os
-import numpy as np
 
-# 페이지 설정
-st.set_page_config(page_title="브랜드별 비교 분석", page_icon="📊", layout="wide")
+st.set_page_config(page_title="브랜드별 비교", page_icon="📊", layout="wide")
 
 # CSS 로드
 if os.path.exists("style.css"):
@@ -21,21 +18,17 @@ def get_data():
         return pd.DataFrame()
 
     df = pd.read_csv(file_path)
-    df['brand'] = df['brand'].astype(str).str.strip()
-    df['category'] = df['category'].fillna('기타')
-    
-    # 1. '세일' 또는 'SALE' 관련 데이터 제거
+    # 이벤트 표기 정규화
     if 'event' in df.columns:
         df['event'] = df['event'].astype(str).str.replace(r'\s+', '', regex=True)
-        df = df[~df['event'].str.contains(r'(?i)sale|세일', regex=True, na=False)]
-        
-        # 2. 덤 증정 이벤트 정규화
         df.loc[df['event'].str.contains(r'1\+1', regex=True, na=False), 'event'] = '1+1'
         df.loc[df['event'].str.contains(r'2\+1', regex=True, na=False), 'event'] = '2+1'
         df.loc[df['event'].str.contains(r'3\+1', regex=True, na=False), 'event'] = '3+1'
-        
-        # 3. 덤 증정 상품만 유지
-        df = df[df['event'].isin(['1+1', '2+1', '3+1'])]
+        df.loc[df['event'].str.contains(r'(?i)sale|세일', regex=True, na=False), 'event'] = 'SALE'
+
+    # 브랜드명 정규화
+    if 'brand' in df.columns:
+        df['brand'] = df['brand'].astype(str).str.strip()
 
     df['price'] = pd.to_numeric(df['price'].astype(str).str.replace(r'[^\d.]', '', regex=True), errors='coerce').fillna(
         0).astype(int)
@@ -48,44 +41,41 @@ def get_data():
         return p
 
     df['unit_price'] = df.apply(calc_unit_price, axis=1)
-    df['discount_rate'] = 0.0
-    valid_mask = df['price'] > 0
-    df.loc[valid_mask, 'discount_rate'] = ((df.loc[valid_mask, 'price'] - df.loc[valid_mask, 'unit_price']) / df.loc[valid_mask, 'price'] * 100)
-    
     return df
 
 
 df = get_data()
 
-brand_colors = {
-    "CU": "#9BC621",
-    "7Eleven": "#008135",
-    "emart24": "#FFB71B",
-    "GS25": "#0095D3"
-}
-
-st.title("📊 브랜드별 행사 전략 심층 비교")
-st.markdown("단순 할인을 제외한 **순수 덤 증정(1+1, 2+1 등)** 상품들의 전략을 분석합니다.")
+st.title("📊 브랜드별 행사 비교")
 
 if not df.empty:
-    # --- 상단 상세 필터 ---
+    brand_colors = {
+        "CU": "#9BC621",
+        "7Eleven": "#008135",
+        "emart24": "#FFB71B",
+        "GS25": "#0095D3"
+    }
+
+    # 필터 영역 (01_overall_summary와 동일한 스타일)
     with st.expander("🔍 상세 필터 및 검색", expanded=True):
+        # 첫 번째 줄: 검색 및 정렬
         r1_c1, r1_c2 = st.columns([3, 1])
         with r1_c1:
-            search_query = st.text_input("📝 상품명 검색", "", placeholder="예: 초코, 제로, 도시락")
+            search_query = st.text_input("📝 검색", "", placeholder="상품명 입력")
         with r1_c2:
-            sort_option = st.selectbox("💰 정렬 기준", ["기본", "상품 많은 순", "가격 낮은 순", "할인율 높은 순"])
+            sort_option = st.selectbox("💰 정렬", ["기본", "가격 낮은 순", "가격 높은 순"])
 
+        # 두 번째 줄: 브랜드, 행사, 분류
         r2_c1, r2_c2, r2_c3 = st.columns([1, 1, 1])
         with r2_c1:
             brand_list = sorted(df['brand'].unique().tolist())
             selected_brands = st.multiselect("🏪 브랜드", brand_list, default=brand_list)
         with r2_c2:
-            event_list = sorted(df['event'].unique().tolist())
-            selected_events = st.multiselect("🎁 행사 유형", event_list, default=event_list)
+            event_list = sorted([e for e in df['event'].unique().tolist() if e not in ['SALE', '세일']])
+            selected_events = st.multiselect("🎁 행사", event_list, default=event_list)
         with r2_c3:
             cat_list = sorted(df['category'].unique().tolist())
-            selected_cats = st.multiselect("📂 카테고리 분류", cat_list, default=cat_list)
+            selected_cats = st.multiselect("📂 분류", cat_list, default=cat_list)
 
     # 데이터 필터링
     filtered_df = df[
@@ -143,29 +133,16 @@ if not df.empty:
         # 표와 동일한 정렬 방식 사용
         brand_counts_raw = filtered_df['brand'].value_counts()
 
-        # Tab 2: 카테고리 및 행사 비중 분석
-        with tab2:
-            st.subheader("브랜드별 행사 유형 비중 (1+1 vs 2+1 vs 3+1)")
-            
-            # 모든 브랜드/행사 조합을 포함하기 위해 범주형 변환
-            plot_df = f_df.copy()
-            plot_df['brand'] = pd.Categorical(plot_df['brand'], categories=brand_order, ordered=True)
-            plot_df['event'] = pd.Categorical(plot_df['event'], categories=selected_events, ordered=True)
-            plot_df['category'] = pd.Categorical(plot_df['category'], categories=selected_cats, ordered=True)
+        # 표의 첫 번째 컬럼(1+1)의 정렬된 값들
+        first_col_sorted_values = sorted_event_data[cols_order[0]]
 
-            # 비중 데이터 계산 (모든 조합 유지)
-            event_stats = plot_df.groupby(['brand', 'event'], observed=False).size().reset_index(name='count')
-            brand_totals = event_stats.groupby('brand', observed=False)['count'].transform('sum')
-            event_stats['percentage'] = np.where(brand_totals > 0, (event_stats['count'] / brand_totals) * 100, 0)
-            
-            fig_pct = px.bar(event_stats, x='brand', y='percentage', color='event',
-                            text=event_stats['percentage'].apply(lambda x: f'{x:.1f}%' if x > 0 else ''),
-                            category_orders={"brand": brand_order, "event": selected_events},
-                            color_discrete_sequence=px.colors.qualitative.Pastel,
-                            labels={'percentage': '비중 (%)', 'brand': '브랜드', 'event': '행사유형'})
-            fig_pct.update_layout(yaxis_title="비중 (%)", barmode='stack', height=450)
-            st.plotly_chart(fig_pct, width="stretch")
-            st.info("💡 각 브랜드가 어떤 증정 방식에 더 집중하고 있는지 한눈에 비교할 수 있습니다.")
+        # 막대그래프: 첫 번째 컬럼(1+1)의 정렬된 값 기준
+        brand_counts = pd.DataFrame({
+            '브랜드': brand_order,
+            '상품 개수': first_col_sorted_values
+        })
+        brand_counts['브랜드'] = pd.Categorical(brand_counts['브랜드'], categories=brand_order, ordered=True)
+        brand_counts = brand_counts.sort_values('브랜드')
 
         col1, col2 = st.columns(2)
         with col1:
@@ -302,4 +279,4 @@ if not df.empty:
     else:
         st.warning("필터링된 결과가 없습니다.")
 else:
-    st.error("데이터를 로드할 수 없습니다.")
+    st.error("데이터를 불러올 수 없습니다.")
